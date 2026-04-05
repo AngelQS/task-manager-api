@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { FindTaskByIdDto } from './dto/find-task-by-id.dto';
+import { DeleteTaskByIdDto } from './dto/delete-task-by-id.dto';
 
 export interface Task {
   id: number;
@@ -17,8 +18,8 @@ export class TasksService {
     return this.tasks;
   }
 
-  findById(dto: FindTaskByIdDto): Task | undefined {
-    const task = this.tasks.find((task) => task.id === dto.id);
+  findById(dto: FindTaskByIdDto): Task {
+    const task = this.tasks.find((task) => task.id === Number(dto.id));
     if (!task) {
       throw new Error('Task not found');
     }
@@ -32,6 +33,15 @@ export class TasksService {
       completed: false,
     };
     this.tasks.push(task);
+    return task;
+  }
+
+  delete(dto: DeleteTaskByIdDto): Task {
+    const task = this.tasks.find((task) => task.id === Number(dto.id));
+    if (!task) {
+      throw new Error('Task not found');
+    }
+    this.tasks = this.tasks.filter((task) => task.id !== Number(dto.id));
     return task;
   }
 }

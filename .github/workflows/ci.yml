@@ -2,9 +2,9 @@ name: NestJS CI/CD
 
 on:
   push:
-    branches: [master]
+    branches: [master, qa, develop]
   pull_request:
-    branches: [master]
+    branches: [master, qa, develop]
 
 jobs:
   secret-scanning:
@@ -91,10 +91,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set Railway environment
+        run: |
+          if [ "${{ github.ref_name }}" == "master" ]; then
+            echo "RAILWAY_ENVIRONMENT_ID=${{ secrets.RAILWAY_ENVIRONMENT_ID_PROD }}" >> $GITHUB_ENV
+            echo "RAILWAY_TOKEN=${{ secrets.RAILWAY_TOKEN_PROD }}" >> $GITHUB_ENV
+            echo "DEPLOY_ENV=Production 🟢" >> $GITHUB_ENV
+          elif [ "${{ github.ref_name }}" == "qa" ]; then
+            echo "RAILWAY_ENVIRONMENT_ID=${{ secrets.RAILWAY_ENVIRONMENT_ID_QA }}" >> $GITHUB_ENV
+            echo "RAILWAY_TOKEN=${{ secrets.RAILWAY_TOKEN_QA }}" >> $GITHUB_ENV
+            echo "DEPLOY_ENV=QA 🟡" >> $GITHUB_ENV
+          else
+            echo "RAILWAY_ENVIRONMENT_ID=${{ secrets.RAILWAY_ENVIRONMENT_ID_DEV }}" >> $GITHUB_ENV
+            echo "RAILWAY_TOKEN=${{ secrets.RAILWAY_TOKEN_DEV }}" >> $GITHUB_ENV
+            echo "DEPLOY_ENV=Development 🔵" >> $GITHUB_ENV
+          fi
+
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
-      - name: Deploy
-        run: railway up --service ${{ secrets.RAILWAY_SERVICE_ID }} --message "${{ github.event.head_commit.message }}"
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      - name: Deploy (${{ env.DEPLOY_ENV }})
+        run: railway up --service ${{ secrets.RAILWAY_SERVICE_ID }} --environment ${{ env.RAILWAY_ENVIRONMENT_ID }} --message "${{ github.event.head_commit.message }}"
