@@ -13,7 +13,7 @@ export class TasksController {
     return this.tasksService.findAll();
   }
 
-  @Get()
+  @Get('/:id')
   findById(@Body() dto: FindTaskByIdDto) {
     return this.tasksService.findById(dto);
   }
@@ -23,7 +23,7 @@ export class TasksController {
     return this.tasksService.create(dto);
   }
 
-  @Delete()
+  @Delete('/:id')
   delete(@Body() dto: DeleteTaskByIdDto) {
     return this.tasksService.delete(dto);
   }
