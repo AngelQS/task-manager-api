@@ -18,8 +18,8 @@ export class TasksService {
     return this.tasks;
   }
 
-  findById(dto: FindTaskByIdDto): Task {
-    const task = this.tasks.find((task) => task.id === Number(dto.id));
+  findById(id: number): Task {
+    const task = this.tasks.find((task) => task.id === id);
     if (!task) {
       throw new Error('Task not found');
     }
@@ -36,12 +36,12 @@ export class TasksService {
     return task;
   }
 
-  delete(dto: DeleteTaskByIdDto): Task {
-    const task = this.tasks.find((task) => task.id === Number(dto.id));
+  delete(id: number): Task {
+    const task = this.tasks.find((task) => task.id === id);
     if (!task) {
       throw new Error('Task not found');
     }
-    this.tasks = this.tasks.filter((task) => task.id !== Number(dto.id));
+    this.tasks = this.tasks.filter((task) => task.id !== id);
     return task;
   }
 }

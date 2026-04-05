@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Post } from '@nestjs/common';
+import { Body, Param, Controller, Delete, Get, Post } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { FindTaskByIdDto } from './dto/find-task-by-id.dto';
@@ -14,8 +14,8 @@ export class TasksController {
   }
 
   @Get('/:id')
-  findById(@Body() dto: FindTaskByIdDto) {
-    return this.tasksService.findById(dto);
+  findById(@Param('id') id: string) {
+    return this.tasksService.findById(Number(id));
   }
 
   @Post()
@@ -24,7 +24,7 @@ export class TasksController {
   }
 
   @Delete('/:id')
-  delete(@Body() dto: DeleteTaskByIdDto) {
-    return this.tasksService.delete(dto);
+  delete(@Param('id') id: string) {
+    return this.tasksService.delete(Number(id));
   }
 }
