@@ -97,7 +97,7 @@ jobs:
             echo "RAILWAY_ENVIRONMENT_ID=${{ secrets.RAILWAY_ENVIRONMENT_ID_PROD }}" >> $GITHUB_ENV
             echo "RAILWAY_TOKEN=${{ secrets.RAILWAY_TOKEN_PROD }}" >> $GITHUB_ENV
             echo "DEPLOY_ENV=Production 🟢" >> $GITHUB_ENV
-          elif [ "${{ github.ref_name }}" == "test" ]; then
+          elif [ "${{ github.ref_name }}" == "qa" ]; then
             echo "RAILWAY_ENVIRONMENT_ID=${{ secrets.RAILWAY_ENVIRONMENT_ID_QA }}" >> $GITHUB_ENV
             echo "RAILWAY_TOKEN=${{ secrets.RAILWAY_TOKEN_QA }}" >> $GITHUB_ENV
             echo "DEPLOY_ENV=QA 🟡" >> $GITHUB_ENV
