@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { CreateTaskDto } from './dto/create-task.dto';
+import { FindTaskByIdDto } from './dto/find-task-by-id.dto';
 
 export interface Task {
   id: number;
@@ -14,6 +15,14 @@ export class TasksService {
 
   findAll(): Task[] {
     return this.tasks;
+  }
+
+  findById(dto: FindTaskByIdDto): Task | undefined {
+    const task = this.tasks.find((task) => task.id === dto.id);
+    if (!task) {
+      throw new Error('Task not found');
+    }
+    return task;
   }
 
   create(dto: CreateTaskDto): Task {
