@@ -112,5 +112,3 @@ jobs:
 
       - name: Deploy (${{ env.DEPLOY_ENV }})
         run: railway up --service ${{ secrets.RAILWAY_SERVICE_ID }} --environment ${{ env.RAILWAY_ENVIRONMENT_ID }} --message "${{ github.event.head_commit.message }}"
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
