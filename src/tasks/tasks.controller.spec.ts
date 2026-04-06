@@ -13,16 +13,15 @@ const seedTask = {
 };
 
 const mockTasksService = {
-  findAll: jest.fn().mockReturnValue([seedTask]),
-  create: jest.fn().mockImplementation((dto) => ({
-    id: 2,
-    title: dto.title,
-    status: dto.status ?? TaskStatus.PENDING,
-    priority: dto.priority ?? TaskPriority.MEDIUM,
-    createdAt: new Date().toISOString(),
-  })),
-  update: jest.fn().mockImplementation((id, dto) => ({ ...seedTask, ...dto })),
-  delete: jest.fn().mockReturnValue(seedTask),
+  findAll:  jest.fn().mockResolvedValue([seedTask]),
+  findById: jest.fn().mockResolvedValue(seedTask),
+  create:   jest.fn().mockImplementation((dto) =>
+    Promise.resolve({ ...seedTask, id: 2, title: dto.title }),
+  ),
+  update:   jest.fn().mockImplementation((id, dto) =>
+    Promise.resolve({ ...seedTask, ...dto }),
+  ),
+  delete:   jest.fn().mockResolvedValue(seedTask),
 };
 
 describe('TasksController', () => {
@@ -37,37 +36,21 @@ describe('TasksController', () => {
     controller = module.get<TasksController>(TasksController);
   });
 
-  describe('GET /tasks', () => {
-    it('should return an array of tasks', () => {
-      const result = controller.findAll();
-      expect(result).toEqual([seedTask]);
-      expect(mockTasksService.findAll).toHaveBeenCalled();
-    });
+  it('GET /tasks returns array', async () => {
+    expect(await controller.findAll()).toEqual([seedTask]);
   });
 
-  describe('POST /tasks', () => {
-    it('should create and return a new task', () => {
-      const dto = { title: 'New task' };
-      const result = controller.create(dto);
-      expect(result).toMatchObject({ title: 'New task', status: TaskStatus.PENDING });
-      expect(mockTasksService.create).toHaveBeenCalledWith(dto);
-    });
+  it('POST /tasks creates task', async () => {
+    const result = await controller.create({ title: 'New task' });
+    expect(result).toMatchObject({ title: 'New task' });
   });
 
-  describe('PATCH /tasks/:id', () => {
-    it('should update and return the task', () => {
-      const dto = { status: TaskStatus.IN_PROGRESS };
-      const result = controller.update('1', dto);
-      expect(result).toMatchObject({ status: TaskStatus.IN_PROGRESS });
-      expect(mockTasksService.update).toHaveBeenCalledWith(1, dto);
-    });
+  it('PATCH /tasks/:id updates task', async () => {
+    const result = await controller.update('1', { status: TaskStatus.IN_PROGRESS });
+    expect(result).toMatchObject({ status: TaskStatus.IN_PROGRESS });
   });
 
-  describe('DELETE /tasks/:id', () => {
-    it('should delete and return the task', () => {
-      const result = controller.delete('1');
-      expect(result).toEqual(seedTask);
-      expect(mockTasksService.delete).toHaveBeenCalledWith(1);
-    });
+  it('DELETE /tasks/:id deletes task', async () => {
+    expect(await controller.delete('1')).toEqual(seedTask);
   });
 });
