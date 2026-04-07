@@ -2,8 +2,16 @@ import { Injectable, NotFoundException, InternalServerErrorException, Logger } f
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
+import { CreateChecklistItemDto } from './dto/create-checklist-item.dto';
 import { TaskStatus } from './enums/task-status.enum';
 import { TaskPriority } from './enums/task-priority.enum';
+
+export interface ChecklistItem {
+  id: number;
+  text: string;
+  completed: boolean;
+  position: number;
+}
 
 export interface Task {
   id: number;
@@ -13,6 +21,14 @@ export interface Task {
   category?: string;
   scheduledAt?: string;
   createdAt: string;
+  checklist: ChecklistItem[];
+}
+
+interface ChecklistItemRow {
+  id: number;
+  text: string;
+  completed: boolean;
+  position: number;
 }
 
 interface TaskRow {
@@ -24,6 +40,7 @@ interface TaskRow {
   scheduled_at: string | null;
   created_at: string;
   updated_at: string;
+  checklist_items: ChecklistItemRow[];
 }
 
 function toTask(row: TaskRow): Task {
@@ -35,6 +52,9 @@ function toTask(row: TaskRow): Task {
     ...(row.category && { category: row.category }),
     ...(row.scheduled_at && { scheduledAt: row.scheduled_at }),
     createdAt: row.created_at,
+    checklist: (row.checklist_items ?? [])
+      .sort((a, b) => a.position - b.position)
+      .map(({ id, text, completed, position }) => ({ id, text, completed, position })),
   };
 }
 
@@ -58,10 +78,10 @@ export class TasksService {
   }
 
   async findAll(): Promise<Task[]> {
-    this.logQuery('SELECT', 'tasks');
+    this.logQuery('SELECT', 'tasks + checklist_items');
     const { data, error } = await this.supabase.db
       .from('tasks')
-      .select('*')
+      .select('*, checklist_items(id, text, completed, position)')
       .order('created_at', { ascending: false });
 
     this.logResult('SELECT', 'tasks', data, error);
@@ -70,10 +90,10 @@ export class TasksService {
   }
 
   async findById(id: number): Promise<Task> {
-    this.logQuery('SELECT', 'tasks', { id });
+    this.logQuery('SELECT', 'tasks + checklist_items', { id });
     const { data, error } = await this.supabase.db
       .from('tasks')
-      .select('*')
+      .select('*, checklist_items(id, text, completed, position)')
       .eq('id', id)
       .single();
 
@@ -100,7 +120,24 @@ export class TasksService {
 
     this.logResult('INSERT', 'tasks', data, error);
     if (error) throw new InternalServerErrorException(error.message);
-    return toTask(data as TaskRow);
+
+    const task = data as TaskRow & { checklist_items: ChecklistItemRow[] };
+
+    if (dto.checklist?.length) {
+      const items = dto.checklist.map((item, index) => ({
+        task_id: task.id,
+        text: item.text,
+        completed: false,
+        position: index,
+      }));
+      this.logQuery('INSERT', 'checklist_items', items);
+      const { error: itemsError } = await this.supabase.db
+        .from('checklist_items')
+        .insert(items);
+      if (itemsError) throw new InternalServerErrorException(itemsError.message);
+    }
+
+    return this.findById(task.id);
   }
 
   async update(id: number, dto: UpdateTaskDto): Promise<Task> {
@@ -122,7 +159,7 @@ export class TasksService {
     this.logResult('UPDATE', 'tasks', data, error);
     if (error?.code === 'PGRST116') throw new NotFoundException(`Task ${id} not found`);
     if (error) throw new InternalServerErrorException(error.message);
-    return toTask(data as TaskRow);
+    return this.findById(id);
   }
 
   async delete(id: number): Promise<Task> {
@@ -137,6 +174,95 @@ export class TasksService {
     this.logResult('DELETE', 'tasks', data, error);
     if (error?.code === 'PGRST116') throw new NotFoundException(`Task ${id} not found`);
     if (error) throw new InternalServerErrorException(error.message);
-    return toTask(data as TaskRow);
+    return toTask({ ...(data as TaskRow), checklist_items: [] });
+  }
+
+  async addChecklistItem(taskId: number, dto: CreateChecklistItemDto): Promise<Task> {
+    await this.findById(taskId);
+
+    const { data: existing } = await this.supabase.db
+      .from('checklist_items')
+      .select('position')
+      .eq('task_id', taskId)
+      .order('position', { ascending: false })
+      .limit(1);
+
+    const nextPosition = existing?.length ? (existing[0] as { position: number }).position + 1 : 0;
+
+    this.logQuery('INSERT', 'checklist_items', { taskId, text: dto.text, position: nextPosition });
+    const { error } = await this.supabase.db
+      .from('checklist_items')
+      .insert({ task_id: taskId, text: dto.text, completed: false, position: nextPosition });
+
+    if (error) throw new InternalServerErrorException(error.message);
+    return this.findById(taskId);
+  }
+
+  async toggleChecklistItem(taskId: number, itemId: number): Promise<Task> {
+    const { data: item, error: fetchError } = await this.supabase.db
+      .from('checklist_items')
+      .select('completed')
+      .eq('id', itemId)
+      .eq('task_id', taskId)
+      .single();
+
+    if (fetchError?.code === 'PGRST116') throw new NotFoundException(`Checklist item ${itemId} not found`);
+    if (fetchError) throw new InternalServerErrorException(fetchError.message);
+
+    const newCompleted = !(item as { completed: boolean }).completed;
+    this.logQuery('UPDATE', 'checklist_items', { itemId, completed: newCompleted });
+
+    const { error: updateError } = await this.supabase.db
+      .from('checklist_items')
+      .update({ completed: newCompleted })
+      .eq('id', itemId);
+
+    if (updateError) throw new InternalServerErrorException(updateError.message);
+
+    // Auto-complete task if all items are checked
+    const { data: allItems } = await this.supabase.db
+      .from('checklist_items')
+      .select('completed')
+      .eq('task_id', taskId);
+
+    const items = allItems as { completed: boolean }[];
+    const allDone = items.length > 0 && items.every((i) => i.completed);
+    const noneDone = items.every((i) => !i.completed);
+
+    const { data: currentTask } = await this.supabase.db
+      .from('tasks')
+      .select('status')
+      .eq('id', taskId)
+      .single();
+
+    const currentStatus = (currentTask as { status: string }).status;
+
+    if (allDone) {
+      this.logQuery('UPDATE', 'tasks', { id: taskId, status: TaskStatus.COMPLETED });
+      await this.supabase.db
+        .from('tasks')
+        .update({ status: TaskStatus.COMPLETED })
+        .eq('id', taskId);
+    } else if (currentStatus === TaskStatus.COMPLETED) {
+      this.logQuery('UPDATE', 'tasks', { id: taskId, status: TaskStatus.IN_PROGRESS });
+      await this.supabase.db
+        .from('tasks')
+        .update({ status: TaskStatus.IN_PROGRESS })
+        .eq('id', taskId);
+    }
+
+    return this.findById(taskId);
+  }
+
+  async deleteChecklistItem(taskId: number, itemId: number): Promise<Task> {
+    this.logQuery('DELETE', 'checklist_items', { taskId, itemId });
+    const { error } = await this.supabase.db
+      .from('checklist_items')
+      .delete()
+      .eq('id', itemId)
+      .eq('task_id', taskId);
+
+    if (error) throw new InternalServerErrorException(error.message);
+    return this.findById(taskId);
   }
 }
