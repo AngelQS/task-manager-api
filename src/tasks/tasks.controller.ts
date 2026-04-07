@@ -2,8 +2,7 @@ import { Body, Param, Controller, Delete, Get, Post, Patch } from '@nestjs/commo
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
-import { FindTaskByIdDto } from './dto/find-task-by-id.dto';
-import { DeleteTaskByIdDto } from './dto/delete-task-by-id.dto';
+import { CreateChecklistItemDto } from './dto/create-checklist-item.dto';
 
 @Controller('tasks')
 export class TasksController {
@@ -32,5 +31,20 @@ export class TasksController {
   @Delete('/:id')
   delete(@Param('id') id: string) {
     return this.tasksService.delete(Number(id));
+  }
+
+  @Post('/:id/checklist')
+  addChecklistItem(@Param('id') id: string, @Body() dto: CreateChecklistItemDto) {
+    return this.tasksService.addChecklistItem(Number(id), dto);
+  }
+
+  @Patch('/:id/checklist/:itemId')
+  toggleChecklistItem(@Param('id') id: string, @Param('itemId') itemId: string) {
+    return this.tasksService.toggleChecklistItem(Number(id), Number(itemId));
+  }
+
+  @Delete('/:id/checklist/:itemId')
+  deleteChecklistItem(@Param('id') id: string, @Param('itemId') itemId: string) {
+    return this.tasksService.deleteChecklistItem(Number(id), Number(itemId));
   }
 }

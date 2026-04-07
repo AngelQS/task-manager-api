@@ -1,6 +1,8 @@
-import { IsString, IsNotEmpty, IsEnum, IsOptional, IsDateString } from 'class-validator';
+import { IsString, IsNotEmpty, IsEnum, IsOptional, IsDateString, IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { TaskStatus } from '../enums/task-status.enum';
 import { TaskPriority } from '../enums/task-priority.enum';
+import { CreateChecklistItemDto } from './create-checklist-item.dto';
 
 export class CreateTaskDto {
   @IsString()
@@ -22,4 +24,10 @@ export class CreateTaskDto {
   @IsDateString()
   @IsOptional()
   scheduledAt?: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateChecklistItemDto)
+  @IsOptional()
+  checklist?: CreateChecklistItemDto[];
 }
