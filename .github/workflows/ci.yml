@@ -65,10 +65,20 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
+  approval:
+    name: 👀 Awaiting Approval
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.event_name == 'pull_request'
+    environment: approval
+    steps:
+      - name: Approval granted
+        run: echo "Approved, proceeding with build and deploy"
+
   build:
     name: 🏗️ Build
     runs-on: ubuntu-latest
-    needs: [test]
+    needs: [approval]
     steps:
       - uses: actions/checkout@v4
 
