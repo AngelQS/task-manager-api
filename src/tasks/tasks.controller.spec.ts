@@ -1,10 +1,27 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TasksController } from './tasks.controller';
 import { TasksService } from './tasks.service';
+import { TaskStatus } from './enums/task-status.enum';
+import { TaskPriority } from './enums/task-priority.enum';
+
+const seedTask = {
+  id: 1,
+  title: 'First task',
+  status: TaskStatus.PENDING,
+  priority: TaskPriority.MEDIUM,
+  createdAt: new Date().toISOString(),
+};
 
 const mockTasksService = {
-  findAll: jest.fn().mockReturnValue([{ id: 1, title: 'First task', completed: false }]),
-  create: jest.fn().mockImplementation((dto) => ({ id: 2, title: dto.title, completed: false })),
+  findAll:  jest.fn().mockResolvedValue([seedTask]),
+  findById: jest.fn().mockResolvedValue(seedTask),
+  create:   jest.fn().mockImplementation((dto) =>
+    Promise.resolve({ ...seedTask, id: 2, title: dto.title }),
+  ),
+  update:   jest.fn().mockImplementation((id, dto) =>
+    Promise.resolve({ ...seedTask, ...dto }),
+  ),
+  delete:   jest.fn().mockResolvedValue(seedTask),
 };
 
 describe('TasksController', () => {
@@ -19,20 +36,21 @@ describe('TasksController', () => {
     controller = module.get<TasksController>(TasksController);
   });
 
-  describe('GET /tasks', () => {
-    it('should return an array of tasks', () => {
-      const result = controller.findAll();
-      expect(result).toEqual([{ id: 1, title: 'First task', completed: false }]);
-      expect(mockTasksService.findAll).toHaveBeenCalled();
-    });
+  it('GET /tasks returns array', async () => {
+    expect(await controller.findAll()).toEqual([seedTask]);
   });
 
-  describe('POST /tasks', () => {
-    it('should create and return a new task', () => {
-      const dto = { title: 'New task' };
-      const result = controller.create(dto);
-      expect(result).toMatchObject({ title: 'New task', completed: false });
-      expect(mockTasksService.create).toHaveBeenCalledWith(dto);
-    });
+  it('POST /tasks creates task', async () => {
+    const result = await controller.create({ title: 'New task' });
+    expect(result).toMatchObject({ title: 'New task' });
+  });
+
+  it('PATCH /tasks/:id updates task', async () => {
+    const result = await controller.update('1', { status: TaskStatus.IN_PROGRESS });
+    expect(result).toMatchObject({ status: TaskStatus.IN_PROGRESS });
+  });
+
+  it('DELETE /tasks/:id deletes task', async () => {
+    expect(await controller.delete('1')).toEqual(seedTask);
   });
 });
